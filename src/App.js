@@ -12,12 +12,15 @@ import {
 import { useEffect, useRef, useState } from "react";
 import Layout from "./components/Layout";
 import exifr from "exifr";
-import { initialHeader, saveDataCSV } from "./utils/jsonToCSV";
+import { saveDataCSV } from "./utils/jsonToCSV";
 import papaparse from "papaparse";
+
+const initialHeader = ["ID", "FileName", "FileType"];
 
 export default function App() {
     const refInput = useRef();
     const [listFiles, setListFiles] = useState([]);
+    const refHeader = useRef([...initialHeader]);
     const refFiles = useRef([]);
 
     function onChooseFiles(e) {
@@ -30,6 +33,7 @@ export default function App() {
                 fileObjectURL: URL.createObjectURL(files[i]),
             });
         }
+        refHeader.current = [...initialHeader];
         refFiles.current = [];
         setListFiles([...newList]);
     }
@@ -39,30 +43,34 @@ export default function App() {
             exifr.parse(listFiles[i].fileObjectURL).then((output) => {
                 const fileName = listFiles[i].file?.name;
                 const fileType = listFiles[i].file?.type;
-                const newObj = {
-                    ...initialHeader,
+                const listOutputKey = Object.keys(output);
+                refHeader.current = [...refHeader.current, ...listOutputKey];
+                refFiles.current.push({
                     ...output,
-                    id: i + 1,
+                    ID: i + 1,
                     FileName: fileName,
                     FileType: fileType,
-                };
-                refFiles.current.push(newObj);
+                });
             });
         }
     }, [listFiles]);
 
     function downloadFiles() {
-        async function loadEXIF() {
-            if (refFiles.current.length === 0) {
-                alert("Please choose a file!");
-                return;
-            }
-            const fileName = "EXIF to CSV";
-            const csv = papaparse.unparse(refFiles.current);
-            saveDataCSV(fileName, csv);
+        if (refFiles.current.length === 0) {
+            alert("Please choose a file!");
+            return;
         }
-
-        loadEXIF();
+        const listHeader = [...new Set(refHeader.current)];
+        const allHeader = {};
+        listHeader.forEach((item) => {
+            allHeader[item] = "";
+        });
+        const newJSONFiles = refFiles.current.map((item) => {
+            return { ...allHeader, ...item };
+        });
+        const fileName = "EXIF-to-CSV_GeoIT-Dev";
+        const csv = papaparse.unparse(newJSONFiles);
+        saveDataCSV(fileName, csv);
     }
 
     return (
